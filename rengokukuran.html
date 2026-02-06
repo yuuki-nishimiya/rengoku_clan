@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>れんごくクラン公式サイト</title>
+  <style>
+    /* 背景動画を画面全体に固定 */
+    #bg-video {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -1; /* 背景にする */
+    }
+
+    body {
+      font-family: "Arial", sans-serif;
+      text-align: center;
+      padding: 30px;
+      margin: 0;
+      color: white;
+    }
+
+    header {
+      background-color: rgba(255, 51, 0, 0.8);
+      padding: 20px;
+      font-size: 2em;
+      text-shadow: 2px 2px #000;
+    }
+
+    nav {
+      background-color: rgba(255, 153, 0, 0.8);
+      padding: 10px;
+    }
+
+    nav a {
+      color: #fff;
+      margin: 0 15px;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    section {
+      padding: 30px;
+    }
+
+    .character {
+      background-color: rgba(0,0,0,0.5);
+      margin: 20px auto;
+      padding: 20px;
+      border-radius: 15px;
+      width: 80%;
+    }
+
+    footer {
+      background-color: rgba(204, 51, 0, 0.8);
+      padding: 10px;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 背景動画 -->
+<video autoplay muted loop playsinline id="bg-video">
+  <source src="fire01.mp4" type="video/mp4">
+</video>
+
+<header>🔥 れんごくクラン 🔥</header>
+
+<nav>
+  <a href="#about">クラン紹介</a>
+  <a href="#characters">クランメンバー</a>
+  <a href="#games">ニュース</a>
+  <a href="#gallery">SNS一覧</a>
+</nav>
+
+<section id="about">
+  <h2>クラン紹介</h2>
+  <p>れんごくクランは、”最強”の呼吸を使って鬼を倒す柱たちのチームだよ！</p>
+  <img src="rengoku.png" alt="説明文" width="600" height="400">
+</section>
+
+<section id="characters">
+  <h2>キャラクター紹介</h2>
+
+  <div class="character">
+    <h3 style="color: red;">🔥 にしだ　ゆうと（神柱）</h3>
+    <p style="color: red;">さいきょうのリーダー！必殺技は「野太刀自顕流剣術」</p>
+    <a href="https://www.nihonkobudokyoukai.org/martialarts/039/"><img src="ダウンロード.jfif" width="300" height="200"></a>
+  </div>
+
+  <div class="character">
+    <h3 style="color: green;">🌙 つきなり🦌（鹿柱）</h3>
+    <p style="color: green;">個性的！歌が得意！</p>
+    <a href="https://twitcasting.tv/tukina_activity"><img src="tukina.jpg" width="300" height="200"></a>
+  </div>
+
+  <div class="character">
+    <h3 style="color: pink;">🧠 ささき　まさや（脳柱）</h3>
+    <p style="color: pink;">めちゃ頭いい！算数ドリルとくのが得意！</p>
+    <a href="https://dic.pixiv.net/a/%E3%83%81%E3%83%BC%E7%89%9B"><img src="ti-.jpg" width="300" height="200"></a>
+  </div>
+
+  <div class="character">
+    <h3 style="color: yellow;">😎はまざき　じゅんぺい（貝柱）</h3>
+    <p style="color: yellow;">めったに会えないレアキャラ！おうちが大好き！</p>
+    <a href="https://dic.pixiv.net/a/Syamu_game"><img src="syamu.jfif" width="300" height="200"></a>
+  </div>
+</section>
+
+<section id="games">
+  <h2>ニュース</h2>
+  <p>れんごくクランの活動に関する最新情報が見れるよ！</p>
+  <p>
+  <span style="color: red;">N</span>
+  <span style="color: orange;">e</span>
+  <span style="color: yellow;">w</span>
+   2026/02/04 新規メンバー加入！
+  </p>
+    <p style="color: purple;">🤡レイ・リー(チート柱)</p>
+    <h5>最強の頭脳！なんかパソコンで意味わからないの作ってる！</h5>
+    <a href="https://www.youtube.com/@%E3%83%AC%E3%82%A4%E3%83%AA%E3%83%BC"><img src="reiri-.jfif" width="300" height="200"></a>
+</section>
+
+<section id="gallery">
+  <h2>SNS</h2>
+  <p>れんごくクランのSNS一覧だよ！フォローしてね！</p>
+  <a href="https://www.instagram.com/7ri._.yu6/"><img src="insta.jfif"></a>
+  <a href="https://www.tiktok.com/@riyu4shady"><img src="tik.png"></a>
+</section>
+
+<footer>
+  © 2025 れんごくクラン | 最強の柱たちを応援しよう！
+</footer>
+
+</body>
+</html>
