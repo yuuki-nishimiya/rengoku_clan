@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>チートFPSシミュレーター</title>
+<style>
+  :root{
+    --bg:#0d1117;
+    --panel:#141a24;
+    --panel-border:#2a3342;
+    --accent:#ffcc00;
+    --accent2:#ff4655;
+    --text:#e8edf5;
+    --text-dim:#8a95a8;
+    --good:#3ddc84;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#11151c;
+      --panel:#171e29;
+      --panel-border:#2a3342;
+      --text:#e8edf5;
+      --text-dim:#8a95a8;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0d1117; --panel:#141a24; --panel-border:#2a3342; --text:#e8edf5; --text-dim:#8a95a8;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    background:var(--bg);
+    font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    color:var(--text);
+  }
+  canvas{display:block; width:100%; height:100%; outline:none;}
+  canvas.locked{cursor:none;}
+
+  .overlay{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(6,9,14,0.82); backdrop-filter:blur(6px); z-index:50; text-align:center;
+  }
+  .panel{
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:14px;
+    padding:36px 40px; max-width:480px; width:90%;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  }
+  .panel h1{ font-size:26px; margin:0 0 10px; letter-spacing:0.5px; }
+  .panel p{ color:var(--text-dim); line-height:1.7; font-size:14.5px; margin:0 0 20px; }
+  .panel .row{ display:flex; justify-content:space-between; padding:6px 0; font-size:13.5px; color:var(--text-dim); border-top:1px solid var(--panel-border); }
+  .panel .row span:last-child{ color:var(--text); font-weight:600; }
+  .btn{
+    background:var(--accent); color:#141a24; border:none; padding:13px 30px; border-radius:8px;
+    font-size:16px; font-weight:700; cursor:pointer; margin-top:18px; transition:transform .12s ease;
+  }
+  .btn:hover{ transform:translateY(-2px); }
+  .btn.secondary{ background:transparent; border:1px solid var(--panel-border); color:var(--text); }
+
+  #hud{ position:fixed; inset:0; pointer-events:none; z-index:20; }
+  #crosshair{
+    position:absolute; top:50%; left:50%; width:22px; height:22px; transform:translate(-50%,-50%);
+  }
+  #crosshair::before, #crosshair::after{
+    content:""; position:absolute; background:var(--text); opacity:0.85;
+  }
+  #crosshair::before{ left:50%; top:0; width:2px; height:100%; transform:translateX(-1px); }
+  #crosshair::after{ top:50%; left:0; height:2px; width:100%; transform:translateY(-1px); }
+  #crosshair.locked::before, #crosshair.locked::after{ background:var(--accent2); }
+  #crosshair .dot{ position:absolute; top:50%; left:50%; width:4px; height:4px; border-radius:50%; background:var(--text); transform:translate(-50%,-50%); }
+  #crosshair.locked .dot{ background:var(--accent2); }
+
+  #topLeft{ position:absolute; top:18px; left:18px; pointer-events:auto; }
+  .stat-panel{
+    background:rgba(20,26,36,0.72); border:1px solid var(--panel-border); border-radius:10px;
+    padding:12px 16px; min-width:200px; backdrop-filter:blur(4px);
+  }
+  .stat-row{ display:flex; align-items:center; gap:10px; margin-bottom:8px; font-size:12.5px; color:var(--text-dim); }
+  .stat-row:last-child{ margin-bottom:0; }
+  #healthBarOuter{ flex:1; height:10px; background:#232c3a; border-radius:6px; overflow:hidden; }
+  #healthFill{ height:100%; width:100%; background:linear-gradient(90deg,var(--good),#7ee89b); transition:width .15s ease, background .2s ease; }
+  #armorBarOuter{ flex:1; height:8px; background:#232c3a; border-radius:6px; overflow:hidden; }
+  #armorFill{ height:100%; width:0%; background:linear-gradient(90deg,#4d9dff,#8ec4ff); transition:width .15s ease; }
+
+  #weaponRow{ display:flex; align-items:baseline; justify-content:space-between; margin-top:2px; }
+  #weaponName{ color:var(--text); font-weight:700; font-size:13px; }
+  #weaponAmmo{ color:var(--accent); font-weight:800; font-size:13px; }
+  .weapon-hint{ font-size:10.5px; color:var(--text-dim); margin-top:2px; }
+
+  #toastBox{
+    position:absolute; bottom:80px; left:50%; transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none;
+  }
+  .toast-item{
+    background:rgba(20,26,36,0.85); border:1px solid var(--panel-border); border-radius:8px;
+    padding:7px 16px; font-size:12.5px; color:var(--text); opacity:1; transition:opacity .5s ease;
+  }
+  .toast-item.fade{ opacity:0; }
+
+  #crosshair.aiming{ width:10px; height:10px; }
+
+  #topRight{ position:absolute; top:18px; right:18px; pointer-events:auto; display:flex; gap:10px; align-items:flex-start; }
+  .score-panel{
+    background:rgba(20,26,36,0.72); border:1px solid var(--panel-border); border-radius:10px;
+    padding:12px 18px; text-align:right; backdrop-filter:blur(4px);
+  }
+  .score-panel .big{ font-size:22px; font-weight:800; color:var(--accent); line-height:1; }
+  .score-panel .lbl{ font-size:11px; color:var(--text-dim); margin-top:3px; }
+
+  #cheatBtn{
+    background:rgba(255,70,85,0.16); border:1px solid var(--accent2); color:#ff8f9a;
+    padding:10px 16px; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer;
+    display:flex; align-items:center; gap:6px;
+  }
+  #cheatBtn:hover{ background:rgba(255,70,85,0.28); }
+
+  #bottomHint{
+    position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+    font-size:12px; color:var(--text-dim); background:rgba(20,26,36,0.55); padding:6px 14px; border-radius:20px;
+  }
+
+  #damageFlash{ position:fixed; inset:0; background:radial-gradient(circle,transparent 35%,var(--accent2) 130%); opacity:0; pointer-events:none; transition:opacity .15s ease; z-index:15; }
+
+  #cheatMenu{
+    position:fixed; top:0; right:0; height:100%; width:340px; max-width:88vw;
+    background:var(--panel); border-left:1px solid var(--panel-border); z-index:60; display:none;
+    box-shadow:-20px 0 50px rgba(0,0,0,0.4); overflow-y:auto;
+  }
+  #cheatMenu .cm-head{
+    display:flex; align-items:center; justify-content:space-between; padding:20px 22px 14px;
+    border-bottom:1px solid var(--panel-border);
+  }
+  #cheatMenu .cm-head h2{ margin:0; font-size:17px; letter-spacing:0.3px; }
+  #cheatMenu .cm-head h2 .tag{ color:var(--accent2); }
+  #closeCheatBtn{ background:none; border:none; color:var(--text-dim); font-size:20px; cursor:pointer; line-height:1; }
+  .cm-body{ padding:16px 22px 28px; }
+  .cheat-item{
+    background:rgba(255,255,255,0.02); border:1px solid var(--panel-border); border-radius:10px;
+    padding:14px 16px; margin-bottom:12px;
+  }
+  .cheat-item .ci-top{ display:flex; align-items:center; justify-content:space-between; }
+  .cheat-item .ci-name{ font-size:14.5px; font-weight:700; }
+  .cheat-item .ci-desc{ font-size:12px; color:var(--text-dim); margin-top:5px; line-height:1.5; }
+  .cheat-item .ci-sub{ margin-top:10px; display:none; }
+  .cheat-item.active .ci-sub{ display:block; }
+  .cheat-item.active{ border-color:var(--accent2); background:rgba(255,70,85,0.06); }
+
+  .switch{ position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .slider{ position:absolute; cursor:pointer; inset:0; background:#2a3342; border-radius:24px; transition:.2s; }
+  .slider::before{ content:""; position:absolute; height:18px; width:18px; left:3px; top:3px; background:#c7cede; border-radius:50%; transition:.2s; }
+  input:checked + .slider{ background:var(--accent2); }
+  input:checked + .slider::before{ transform:translateX(18px); background:#fff; }
+
+  .range-row{ display:flex; align-items:center; gap:10px; }
+  .range-row input[type=range]{ flex:1; accent-color:var(--accent2); }
+  .range-row .val{ font-size:12.5px; color:var(--accent); font-weight:700; width:44px; text-align:right; }
+
+  #resumeOverlay{ display:none; }
+  #resumeOverlay .panel{ cursor:pointer; }
+
+  #gameOverScreen{ display:none; }
+  #gameOverScreen h1{ color:var(--accent2); }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="damageFlash"></div>
+
+<div id="hud">
+  <div id="crosshair"><div class="dot"></div></div>
+
+  <div id="topLeft">
+    <div class="stat-panel">
+      <div class="stat-row">
+        <span>HP</span>
+        <div id="healthBarOuter"><div id="healthFill"></div></div>
+        <span id="healthText">100</span>
+      </div>
+      <div class="stat-row">
+        <span>装甲</span>
+        <div id="armorBarOuter"><div id="armorFill"></div></div>
+        <span id="armorText">0</span>
+      </div>
+      <div class="stat-row">
+        <span>撃破中のCPU</span>
+        <span id="botCount" style="margin-left:auto;color:var(--text);">10/10</span>
+      </div>
+      <div id="weaponRow">
+        <span id="weaponName">ピストル</span>
+        <span id="weaponAmmo">∞</span>
+      </div>
+      <div class="weapon-hint">1-4キーで武器切替</div>
+    </div>
+  </div>
+
+  <div id="toastBox"></div>
+
+  <div id="topRight">
+    <div class="score-panel">
+      <div class="big" id="scoreText">0</div>
+      <div class="lbl">KILLS</div>
+    </div>
+    <button id="cheatBtn">🎯 チートメニュー <span style="opacity:.6;">[C]</span></button>
+  </div>
+
+  <div id="bottomHint">WASD 移動・マウス 視点・左クリック 射撃・右クリック エイム・Space ジャンプ・Ctrl しゃがみ・1-4 武器切替・C チートメニュー</div>
+</div>
+
+<div id="startScreen" class="overlay">
+  <div class="panel">
+    <h1>チートFPS: バトルロイヤル</h1>
+    <p>フィールドはすべてCPU。武器や回復・装甲アイテムを拾いながら生き残りましょう。チートメニューからオートエイムやTPS化なども自由に切り替えられます。</p>
+    <div class="row"><span>移動 / ジャンプ / しゃがみ</span><span>WASD / Space / Ctrl</span></div>
+    <div class="row"><span>視点操作</span><span>マウス</span></div>
+    <div class="row"><span>射撃 / エイム</span><span>左クリック / 右クリック</span></div>
+    <div class="row"><span>武器切替</span><span>1〜4キー</span></div>
+    <div class="row"><span>チートメニュー</span><span>ボタン / Cキー</span></div>
+    <button class="btn" id="startBtn">クリックしてプレイ</button>
+  </div>
+</div>
+
+<div id="resumeOverlay" class="overlay">
+  <div class="panel">
+    <h1>一時停止中</h1>
+    <p>クリックしてゲームを再開します。</p>
+  </div>
+</div>
+
+<div id="gameOverScreen" class="overlay">
+  <div class="panel">
+    <h1>やられた！</h1>
+    <p>CPUの猛攻に倒れました。チート設定はそのままリトライできます。</p>
+    <div class="row"><span>最終キル数</span><span id="finalScore">0</span></div>
+    <button class="btn" id="retryBtn">リトライ</button>
+  </div>
+</div>
+
+<div id="cheatMenu">
+  <div class="cm-head">
+    <h2>チート<span class="tag">メニュー</span></h2>
+    <button id="closeCheatBtn">✕</button>
+  </div>
+  <div class="cm-body">
+
+    <div class="cheat-item" id="item-aimbot">
+      <div class="ci-top">
+        <div>
+          <div class="ci-name">オートエイム</div>
+        </div>
+        <label class="switch"><input type="checkbox" id="aimbotToggle"><span class="slider"></span></label>
+      </div>
+      <div class="ci-desc">視界内の最も近いCPUに自動で照準を合わせ続けます。検出範囲(FOV)を調整可能。</div>
+      <div class="ci-sub">
+        <div class="range-row">
+          <span style="font-size:12px;color:var(--text-dim);">FOV</span>
+          <input type="range" id="fovRange" min="5" max="360" value="360">
+          <span class="val" id="fovVal">360°</span>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--text-dim);">
+          <input type="checkbox" id="aimbotADSToggle" style="width:14px;height:14px;">
+          右クリック(ADS)を押している間だけ有効にする
+        </label>
+      </div>
+    </div>
+
+    <div class="cheat-item" id="item-triggerbot">
+      <div class="ci-top">
+        <div class="ci-name">トリガーボット</div>
+        <label class="switch"><input type="checkbox" id="triggerbotToggle"><span class="slider"></span></label>
+      </div>
+      <div class="ci-desc">照準がCPUに重なった瞬間、クリックしなくても自動で発射します。オートエイムと組み合わせると強力です。</div>
+    </div>
+
+    <div class="cheat-item" id="item-tps">
+      <div class="ci-top">
+        <div class="ci-name">TPS化</div>
+        <label class="switch"><input type="checkbox" id="tpsToggle"><span class="slider"></span></label>
+      </div>
+      <div class="ci-desc">一人称視点から三人称視点に切り替え、壁越しの索敵が有利になります。</div>
+    </div>
+
+    <div class="cheat-item" id="item-spin">
+      <div class="ci-top">
+        <div class="ci-name">スピンボット</div>
+        <label class="switch"><input type="checkbox" id="spinToggle"><span class="slider"></span></label>
+      </div>
+      <div class="ci-desc">常に高速回転し続け、相手からの照準を合わせづらくします。</div>
+    </div>
+
+    <div class="cheat-item" id="item-homing">
+      <div class="ci-top">
+        <div class="ci-name">ホーミング弾</div>
+        <label class="switch"><input type="checkbox" id="homingToggle"><span class="slider"></span></label>
+      </div>
+      <div class="ci-desc">発射した弾が自動で近くのCPUに向かって軌道を曲げます。</div>
+    </div>
+
+    <div class="cheat-item" id="item-rapid">
+      <div class="ci-top">
+        <div class="ci-name">連射モード</div>
+        <label class="switch"><input type="checkbox" id="rapidToggle"><span class="slider"></span></label>
+      </div>
+      <div class="ci-desc">クリック長押しで高速連射になります。</div>
+    </div>
+
+    <div class="cheat-item" id="item-wallhack">
+      <div class="ci-top">
+        <div class="ci-name">ウォールハック</div>
+        <label class="switch"><input type="checkbox" id="wallhackToggle"><span class="slider"></span></label>
+      </div>
+      <div class="ci-desc">障害物越しにCPUの位置を黄色い枠線で透視表示します。</div>
+    </div>
+
+    <div class="cheat-item" id="item-godmode">
+      <div class="ci-top">
+        <div class="ci-name">無限HP</div>
+        <label class="switch"><input type="checkbox" id="godmodeToggle"><span class="slider"></span></label>
+      </div>
+      <div class="ci-desc">CPUの攻撃を一切受けなくなります（無敵）。</div>
+    </div>
+
+    <div class="cheat-item" id="item-infammo">
+      <div class="ci-top">
+        <div class="ci-name">無限弾薬</div>
+        <label class="switch"><input type="checkbox" id="infammoToggle"><span class="slider"></span></label>
+      </div>
+      <div class="ci-desc">全ての武器の弾薬が減らなくなり、リロードや弾切れも発生しません。</div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // ---------------------------------------------------------------------
+  // Renderer / Scene / Camera
+  // ---------------------------------------------------------------------
+  const canvas = document.getElementById('c');
+  const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x8fd0ff);
+  scene.fog = new THREE.Fog(0x8fd0ff, 70, 230);
+
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 600);
+  camera.rotation.order = 'YXZ';
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.15));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
+  dirLight.position.set(30, 60, 20);
+  scene.add(dirLight);
+
+  // ---------------------------------------------------------------------
+  // Arena
+  // ---------------------------------------------------------------------
+  const ARENA = 80;
+
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(ARENA*2+30, ARENA*2+30),
+    new THREE.MeshLambertMaterial({color:0x5b8c4a})
+  );
+  ground.rotation.x = -Math.PI/2;
+  scene.add(ground);
+
+  const grid = new THREE.GridHelper(ARENA*2, 44, 0x2f5a25, 0x2f5a25);
+  grid.position.y = 0.02;
+  scene.add(grid);
+
+  const wallMat = new THREE.MeshLambertMaterial({color:0x707886});
+  function addBoundaryWall(x,z,w,d,h){
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), wallMat);
+    wall.position.set(x, h/2, z);
+    scene.add(wall);
+  }
+  addBoundaryWall(0, -ARENA-1, ARENA*2+2, 2, 5);
+  addBoundaryWall(0,  ARENA+1, ARENA*2+2, 2, 5);
+  addBoundaryWall(-ARENA-1, 0, 2, ARENA*2+2, 5);
+  addBoundaryWall( ARENA+1, 0, 2, ARENA*2+2, 5);
+
+  const obstacleMat = new THREE.MeshLambertMaterial({color:0xb08968});
+  const obstacles = [];
+  const obstacleData = [
+    [18,18,4,4,3.2],[-26,9,3,6,3.2],[0,-31,6,3,3.2],[31,-17,3,3,4],
+    [-35,-35,5,5,3.2],[44,35,4,4,3.2],[-14,38,3,3,3.2],[-49,26,4,4,3.2],
+    [10,-52,4,4,3.2],[-56,-9,3,5,3.2],
+    [50,-40,5,5,3.4],[-45,50,4,4,3.2],[60,10,3,3,3.6],[-10,60,4,4,3.2],
+    [20,-65,3,5,3.2],[-60,-50,4,4,3.4]
+  ];
+  obstacleData.forEach(([x,z,w,d,h])=>{
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), obstacleMat);
+    mesh.position.set(x, h/2, z);
+    scene.add(mesh);
+    obstacles.push({x, z, radius: Math.max(w,d)/2, mesh});
+  });
+  const obstacleMeshes = obstacles.map(o=>o.mesh);
+
+  // ---------------------------------------------------------------------
+  // Player
+  // ---------------------------------------------------------------------
+  let yaw = 0, pitch = 0;
+  const PLAYER_SPAWN = new THREE.Vector3(-(ARENA-8), 0, -(ARENA-8));
+  function yawToward(fromPos, toPos){
+    return Math.atan2(-(toPos.x-fromPos.x), -(toPos.z-fromPos.z));
+  }
+  function spawnPlayer(){
+    player.pos.copy(PLAYER_SPAWN);
+    player.posY = 0; player.velY = 0;
+    yaw = yawToward(PLAYER_SPAWN, new THREE.Vector3(0,0,0));
+    pitch = 0;
+  }
+  const player = {
+    pos: new THREE.Vector3(0,0,0), height:1.6, radius:0.5,
+    health:100, armor:0, score:0,
+    walkPhase:0, lastStepIndex:0,
+    posY:0, velY:0, crouching:false
+  };
+  spawnPlayer();
+
+  // Builds a humanoid rig: torso / head / hips / arms / legs / gun.
+  // The model's front faces local -Z, matching the yaw convention used
+  // for both the player camera and bot movement, so spinning is obvious.
+  function buildHumanoid(bodyColor){
+    const mat = new THREE.MeshLambertMaterial({color:bodyColor});
+    const localGunMat = new THREE.MeshLambertMaterial({color:0x22262e});
+    const group = new THREE.Group();
+
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.8,0.35), mat);
+    torso.position.y = 1.05;
+    group.add(torso);
+
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.28,12,12), mat);
+    head.position.y = 1.72;
+    group.add(head);
+
+    const hips = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.24,0.32), mat);
+    hips.position.y = 0.6;
+    group.add(hips);
+
+    const legGeo = new THREE.BoxGeometry(0.22,0.72,0.22);
+    const legPivotL = new THREE.Group();
+    legPivotL.position.set(-0.16, 0.72, 0);
+    const legL = new THREE.Mesh(legGeo, mat);
+    legL.position.y = -0.36;
+    legPivotL.add(legL);
+    group.add(legPivotL);
+
+    const legPivotR = new THREE.Group();
+    legPivotR.position.set(0.16, 0.72, 0);
+    const legR = new THREE.Mesh(legGeo, mat);
+    legR.position.y = -0.36;
+    legPivotR.add(legR);
+    group.add(legPivotR);
+
+    const armGeo = new THREE.BoxGeometry(0.18,0.62,0.18);
+    const armL = new THREE.Mesh(armGeo, mat);
+    armL.position.set(-0.42, 1.09, 0.05);
+    armL.rotation.z = 0.22;
+    group.add(armL);
+
+    const armR = new THREE.Mesh(armGeo, mat);
+    armR.position.set(0.4, 1.15, -0.05);
+    armR.rotation.x = -0.55;
+    group.add(armR);
+
+    // Gun, held out front-right so it reads clearly as a silhouette when turning.
+    const gunGroup = new THREE.Group();
+    const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.13,0.13,0.55), localGunMat);
+    gunBody.position.z = -0.32;
+    gunGroup.add(gunBody);
+    const gunGrip = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.24,0.1), localGunMat);
+    gunGrip.position.set(0, -0.15, -0.08);
+    gunGroup.add(gunGrip);
+    const gunBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.2,8), localGunMat);
+    gunBarrel.rotation.x = Math.PI/2;
+    gunBarrel.position.z = -0.66;
+    gunGroup.add(gunBarrel);
+    const gunSight = new THREE.Mesh(new THREE.BoxGeometry(0.04,0.06,0.08), localGunMat);
+    gunSight.position.set(0, 0.09, -0.2);
+    gunGroup.add(gunSight);
+    gunGroup.position.set(0.4, 1.15, -0.32);
+    group.add(gunGroup);
+
+    return { group, legPivotL, legPivotR, gunMat: localGunMat };
+  }
+
+  const playerRig = buildHumanoid(0x2b6cff);
+  const playerGroup = playerRig.group;
+  playerGroup.visible = false;
+  scene.add(playerGroup);
+
+  // ---------------------------------------------------------------------
+  // Weapons
+  // ---------------------------------------------------------------------
+  const WEAPONS = {
+    pistol:  { name:'ピストル',       dmg:16, cooldown:280, spread:0.012, speed:95,  pellets:1, infinite:true,  color:0x22262e, pickupAmmo:0 },
+    smg:     { name:'SMG',            dmg:9,  cooldown:85,  spread:0.045, speed:100, pellets:1, infinite:false, color:0x3fa9dc, pickupAmmo:60 },
+    shotgun: { name:'ショットガン',    dmg:7,  cooldown:50, spread:0.16,  speed:80,  pellets:100, infinite:false, color:0xdc8b3f, pickupAmmo:18 },
+    sniper:  { name:'スナイパー',      dmg:200, cooldown:10, spread:0.1, speed:170, pellets:50, infinite:false, color:0xdc3f5c, pickupAmmo:8 }
+  };
+  const WEAPON_ORDER = ['pistol','smg','shotgun','sniper'];
+  const loadout = { current:'pistol', ammo:{ pistol:Infinity, smg:1, shotgun:1, sniper:1 } };
+
+  function switchWeapon(name){
+    if(name === 'pistol' || cheats.infiniteAmmo || loadout.ammo[name] > 0){
+      loadout.current = name;
+      playerRig.gunMat.color.setHex(WEAPONS[name].color);
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Items / loot (battle royale pickups)
+  // ---------------------------------------------------------------------
+  const ITEM_DEFS = {
+    weapon_smg:     { kind:'weapon', weapon:'smg',     color:0x3fa9dc, label:'SMG',        shape:'oct' },
+    weapon_shotgun: { kind:'weapon', weapon:'shotgun', color:0xdc8b3f, label:'ショットガン', shape:'oct' },
+    weapon_sniper:  { kind:'weapon', weapon:'sniper',  color:0xdc3f5c, label:'スナイパー',   shape:'oct' },
+    health:         { kind:'health', amount:40, color:0x3ddc84, label:'メディキット', shape:'cross' },
+    armor:          { kind:'armor',  amount:50, color:0x4d9dff, label:'アーマープレート', shape:'sphere' }
+  };
+  const ITEM_SPAWNS = [
+    [21,-11,'weapon_smg'], [-18,-24,'weapon_smg'], [-55,-60,'weapon_smg'],
+    [35,28,'weapon_shotgun'], [-39,16,'weapon_shotgun'],
+    [5,45,'weapon_sniper'], [-52,-28,'weapon_sniper'],
+    [0,11,'health'], [28,-44,'health'], [-28,35,'health'], [46,-7,'health'], [-11,-53,'health'], [55,55,'health'],
+    [14,33,'armor'], [-44,2,'armor'], [53,16,'armor'], [-16,-16,'armor'], [-60,40,'armor']
+  ];
+  const items = [];
+  function buildItemMesh(def){
+    const g = new THREE.Group();
+    let mesh;
+    if(def.shape === 'oct'){
+      mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.42,0), new THREE.MeshLambertMaterial({color:def.color}));
+    } else if(def.shape === 'cross'){
+      mesh = new THREE.Group();
+      const barMat = new THREE.MeshLambertMaterial({color:def.color});
+      const bar1 = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.16,0.16), barMat);
+      const bar2 = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.5,0.16), barMat);
+      mesh.add(bar1, bar2);
+    } else {
+      mesh = new THREE.Mesh(new THREE.SphereGeometry(0.32,12,12), new THREE.MeshLambertMaterial({color:def.color}));
+    }
+    g.add(mesh);
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.55,0.55,0.06,16),
+      new THREE.MeshBasicMaterial({color:def.color, transparent:true, opacity:0.35})
+    );
+    base.position.y = -0.75;
+    g.add(base);
+    return g;
+  }
+  ITEM_SPAWNS.forEach(([x,z,typeKey])=>{
+    const def = ITEM_DEFS[typeKey];
+    const mesh = buildItemMesh(def);
+    mesh.position.set(x, 1.15, z);
+    scene.add(mesh);
+    items.push({ typeKey, def, mesh, x, z, active:true, respawnTimer:0, bobPhase:Math.random()*10 });
+  });
+
+  function pickupItem(item){
+    const def = item.def;
+    if(def.kind === 'weapon'){
+      loadout.ammo[def.weapon] = (loadout.ammo[def.weapon]||0) + def.pickupAmmo;
+      switchWeapon(def.weapon);
+      toast(def.label + ' を拾った (弾薬 ' + Math.floor(loadout.ammo[def.weapon]) + ')');
+    } else if(def.kind === 'health'){
+      player.health = Math.min(100, player.health + def.amount);
+      toast(def.label + ' を拾った (+' + def.amount + ' HP)');
+    } else if(def.kind === 'armor'){
+      player.armor = Math.min(100, player.armor + def.amount);
+      toast(def.label + ' を拾った (+' + def.amount + ' 装甲)');
+    }
+    item.active = false;
+    item.mesh.visible = false;
+    item.respawnTimer = 25;
+    beep(660,0.09,'triangle',0.05);
+  }
+
+  // ---------------------------------------------------------------------
+  // Bots (CPU)
+  // ---------------------------------------------------------------------
+  const MAX_BOTS = 10;
+  const botMat = new THREE.MeshLambertMaterial({color:0xe0403a});
+  const bots = [];
+
+  function randPos(){
+    return new THREE.Vector3((Math.random()*2-1)*(ARENA-6), 0, (Math.random()*2-1)*(ARENA-6));
+  }
+
+  function makeBot(){
+    const rig = buildHumanoid(0xe0403a);
+    const group = rig.group;
+
+    const outline = new THREE.Mesh(
+      new THREE.BoxGeometry(1,2.3,1),
+      new THREE.MeshBasicMaterial({color:0xffe600, wireframe:true, depthTest:false, transparent:true, opacity:0.9})
+    );
+    outline.position.y = 1.1;
+    outline.renderOrder = 999;
+    outline.visible = false;
+    group.add(outline);
+
+    scene.add(group);
+
+    const bot = {
+      group, outline,
+      legPivotL: rig.legPivotL, legPivotR: rig.legPivotR,
+      walkPhase: Math.random()*10,
+      lastStepIndex: 0,
+      pos: randPos(),
+      hp: 100,
+      alive: true,
+      respawnTimer: 0,
+      wanderTarget: randPos(),
+      shootTimer: 1 + Math.random()*2,
+      speed: 2.1 + Math.random()*1.3
+    };
+    group.position.copy(bot.pos);
+    bots.push(bot);
+  }
+  for(let i=0;i<MAX_BOTS;i++) makeBot();
+
+  function respawnBot(bot){
+    bot.pos.copy(randPos());
+    bot.hp = 100;
+    bot.alive = true;
+    bot.group.visible = true;
+    bot.wanderTarget = randPos();
+  }
+
+  function killBot(bot){
+    bot.alive = false;
+    bot.group.visible = false;
+    bot.respawnTimer = 2.5;
+    player.score += 1;
+    beep(1200,0.08,'square',0.05);
+  }
+
+  // ---------------------------------------------------------------------
+  // State / cheats
+  // ---------------------------------------------------------------------
+  const keys = {};
+  let pointerLocked = false;
+  let cheatMenuOpen = false;
+  let mouseDown = false;
+  let aiming = false;
+  let gameStarted = false;
+  let gameOver = false;
+
+  const cheats = { aimbot:false, aimbotFov:360, aimbotADSOnly:false, tps:false, spin:false, homing:false, rapidFire:false, wallhack:false, godMode:false, infiniteAmmo:false, triggerBot:false };
+  const SENS = 0.0022;
+  const SPIN_SPEED = 5.5;
+
+  // ---------------------------------------------------------------------
+  // Audio (simple beeps, no external assets)
+  // ---------------------------------------------------------------------
+  let actx;
+  function beep(freq,dur,type,vol){
+    try{
+      if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type||'square'; o.frequency.value = freq;
+      g.gain.value = vol||0.05;
+      o.connect(g); g.connect(actx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + (dur||0.06));
+      o.stop(actx.currentTime + (dur||0.06));
+    }catch(e){}
+  }
+
+  // ---------------------------------------------------------------------
+  // Input
+  // ---------------------------------------------------------------------
+  document.addEventListener('mousemove', (e)=>{
+    if(pointerLocked && !cheatMenuOpen){
+      yaw -= e.movementX * SENS;
+      pitch -= e.movementY * SENS;
+      const lim = Math.PI/2 - 0.02;
+      pitch = Math.max(-lim, Math.min(lim, pitch));
+    }
+  });
+
+  canvas.addEventListener('mousedown', (e)=>{
+    if(!pointerLocked || gameOver) return;
+    if(e.button === 0){
+      mouseDown = true;
+      shoot();
+    } else if(e.button === 2){
+      aiming = true;
+    }
+  });
+  window.addEventListener('mouseup', (e)=>{
+    if(e.button === 0) mouseDown = false;
+    if(e.button === 2) aiming = false;
+  });
+  canvas.addEventListener('contextmenu', (e)=> e.preventDefault());
+
+  window.addEventListener('keydown', (e)=>{
+    if(e.code === 'Space' || e.code.startsWith('Digit')) e.preventDefault();
+    keys[e.code] = true;
+    if(e.code === 'KeyC') toggleCheatMenu();
+    if(e.code === 'Digit1') switchWeapon('pistol');
+    if(e.code === 'Digit2') switchWeapon('smg');
+    if(e.code === 'Digit3') switchWeapon('shotgun');
+    if(e.code === 'Digit4') switchWeapon('sniper');
+  });
+  window.addEventListener('keyup', (e)=>{ keys[e.code] = false; });
+
+  function toggleCheatMenu(force){
+    cheatMenuOpen = (force !== undefined) ? force : !cheatMenuOpen;
+    document.getElementById('cheatMenu').style.display = cheatMenuOpen ? 'block' : 'none';
+    if(cheatMenuOpen){
+      if(document.pointerLockElement) document.exitPointerLock();
+    } else if(gameStarted && !gameOver){
+      canvas.requestPointerLock();
+    }
+  }
+
+  document.addEventListener('pointerlockchange', ()=>{
+    pointerLocked = document.pointerLockElement === canvas;
+    canvas.classList.toggle('locked', pointerLocked);
+    if(!pointerLocked){ mouseDown = false; aiming = false; }
+    const resume = document.getElementById('resumeOverlay');
+    if(!pointerLocked && gameStarted && !gameOver && !cheatMenuOpen){
+      resume.style.display = 'flex';
+    } else {
+      resume.style.display = 'none';
+    }
+  });
+
+  document.getElementById('resumeOverlay').addEventListener('click', ()=> canvas.requestPointerLock());
+  document.getElementById('startBtn').addEventListener('click', ()=>{
+    document.getElementById('startScreen').style.display = 'none';
+    gameStarted = true;
+    spawnPlayer();
+    canvas.requestPointerLock();
+  });
+  document.getElementById('retryBtn').addEventListener('click', resetGame);
+  document.getElementById('closeCheatBtn').addEventListener('click', ()=> toggleCheatMenu(false));
+  document.getElementById('cheatBtn').addEventListener('click', ()=> toggleCheatMenu(true));
+
+  const el = id => document.getElementById(id);
+  function bindToggle(checkboxId, itemId, onChange){
+    el(checkboxId).addEventListener('change', (e)=>{
+      onChange(e.target.checked);
+      el(itemId).classList.toggle('active', e.target.checked);
+    });
+  }
+  bindToggle('aimbotToggle','item-aimbot', v=> cheats.aimbot = v);
+  el('aimbotADSToggle').addEventListener('change', e=> cheats.aimbotADSOnly = e.target.checked);
+  bindToggle('triggerbotToggle','item-triggerbot', v=> cheats.triggerBot = v);
+  el('fovRange').addEventListener('input', e=>{
+    cheats.aimbotFov = +e.target.value;
+    el('fovVal').textContent = e.target.value + '°';
+  });
+  bindToggle('tpsToggle','item-tps', v=>{ cheats.tps = v; playerGroup.visible = v; });
+  bindToggle('spinToggle','item-spin', v=> cheats.spin = v);
+  bindToggle('homingToggle','item-homing', v=> cheats.homing = v);
+  bindToggle('rapidToggle','item-rapid', v=> cheats.rapidFire = v);
+  bindToggle('wallhackToggle','item-wallhack', v=>{
+    cheats.wallhack = v;
+    bots.forEach(b=> b.outline.visible = v && b.alive);
+  });
+  bindToggle('godmodeToggle','item-godmode', v=> cheats.godMode = v);
+  bindToggle('infammoToggle','item-infammo', v=> cheats.infiniteAmmo = v);
+
+  // ---------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------
+  function getAimEuler(){ return new THREE.Euler(pitch, yaw, 0, 'YXZ'); }
+  function getAimDir(){ return new THREE.Vector3(0,0,-1).applyEuler(getAimEuler()); }
+  function angleLerp(a,b,t){
+    let diff = ((b - a + Math.PI) % (Math.PI*2)) - Math.PI;
+    if(diff < -Math.PI) diff += Math.PI*2;
+    return a + diff*t;
+  }
+  function findNearestBot(fromPos, maxDist, coneDir, coneAngleRad){
+    let best=null, bestD=Infinity;
+    bots.forEach(b=>{
+      if(!b.alive) return;
+      const bp = b.pos.clone().add(new THREE.Vector3(0,1,0));
+      const toB = bp.clone().sub(fromPos);
+      const d = toB.length();
+      if(d > maxDist) return;
+      if(coneDir && coneAngleRad !== undefined){
+        const ang = toB.clone().normalize().angleTo(coneDir);
+        if(ang > coneAngleRad/2) return;
+      }
+      if(d < bestD){ bestD = d; best = b; }
+    });
+    return best;
+  }
+  const raycaster = new THREE.Raycaster();
+  function hasLineOfSight(fromV, toV){
+    const diff = toV.clone().sub(fromV);
+    const dist = diff.length();
+    if(dist < 0.001) return true;
+    raycaster.set(fromV, diff.normalize());
+    raycaster.far = dist;
+    return raycaster.intersectObjects(obstacleMeshes).length === 0;
+  }
+  function resolvePlayerCollision(){
+    obstacles.forEach(o=>{
+      const dx = player.pos.x - o.x, dz = player.pos.z - o.z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      const minDist = o.radius + player.radius;
+      if(dist < minDist && dist > 0.0001){
+        const push = (minDist - dist);
+        player.pos.x += dx/dist*push;
+        player.pos.z += dz/dist*push;
+      }
+    });
+    const lim = ARENA - 0.6;
+    player.pos.x = Math.max(-lim, Math.min(lim, player.pos.x));
+    player.pos.z = Math.max(-lim, Math.min(lim, player.pos.z));
+  }
+
+  // ---------------------------------------------------------------------
+  // Bullets / tracers / damage flash
+  // ---------------------------------------------------------------------
+  const bullets = [];
+  const tracerLines = [];
+  let lastShot = 0;
+
+  function applySpread(dir, spread){
+    return new THREE.Vector3(
+      dir.x + (Math.random()-0.5)*spread,
+      dir.y + (Math.random()-0.5)*spread,
+      dir.z + (Math.random()-0.5)*spread
+    ).normalize();
+  }
+
+  function shoot(){
+    const weapon = WEAPONS[loadout.current];
+    const now = performance.now();
+    const cooldown = cheats.rapidFire ? Math.max(60, weapon.cooldown*0.32) : weapon.cooldown;
+    if(now - lastShot < cooldown) return;
+    if(!weapon.infinite && !cheats.infiniteAmmo && loadout.ammo[loadout.current] <= 0) return;
+    lastShot = now;
+    if(!weapon.infinite && !cheats.infiniteAmmo) loadout.ammo[loadout.current] -= 1;
+
+    const baseDir = getAimDir();
+    const spread = weapon.spread * (aiming ? 0.3 : 1);
+    const start = player.pos.clone()
+      .add(new THREE.Vector3(0, player.height + player.posY, 0))
+      .add(baseDir.clone().multiplyScalar(0.6));
+
+    for(let p=0; p<weapon.pellets; p++){
+      const dir = applySpread(baseDir, spread);
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.1,8,8), new THREE.MeshBasicMaterial({color:0xfff066}));
+      mesh.position.copy(start);
+      scene.add(mesh);
+      bullets.push({mesh, pos:start.clone(), dir:dir.clone(), speed:weapon.speed, life:2.2, homing:cheats.homing, dmg:weapon.dmg});
+    }
+    beep(loadout.current==='sniper'?520:880, loadout.current==='shotgun'?0.09:0.05, 'square', 0.03);
+
+    if(!weapon.infinite && !cheats.infiniteAmmo && loadout.ammo[loadout.current] <= 0){
+      toast(weapon.name + 'の弾切れ！ピストルに切り替え');
+      switchWeapon('pistol');
+    }
+  }
+
+  function spawnTracer(from,to){
+    const geo = new THREE.BufferGeometry().setFromPoints([from,to]);
+    const mat = new THREE.LineBasicMaterial({color:0xff3333});
+    const line = new THREE.Line(geo,mat);
+    scene.add(line);
+    tracerLines.push({line, life:0.08});
+  }
+
+  let flashTimeout;
+  function flashDamage(){
+    const f = el('damageFlash');
+    f.style.opacity = '0.35';
+    clearTimeout(flashTimeout);
+    flashTimeout = setTimeout(()=>{ f.style.opacity = '0'; }, 150);
+  }
+
+  function toast(msg){
+    const box = el('toastBox');
+    const item = document.createElement('div');
+    item.className = 'toast-item';
+    item.textContent = msg;
+    box.appendChild(item);
+    setTimeout(()=>{ item.classList.add('fade'); }, 2200);
+    setTimeout(()=>{ item.remove(); }, 2700);
+  }
+
+  function playFootstep(freq, vol){
+    beep(freq, 0.05, 'sine', vol);
+  }
+
+  function triggerGameOver(){
+    gameOver = true;
+    el('gameOverScreen').style.display = 'flex';
+    el('finalScore').textContent = player.score;
+    if(document.pointerLockElement) document.exitPointerLock();
+  }
+
+  function resetGame(){
+    player.health = 100; player.armor = 0; player.score = 0;
+    player.crouching = false;
+    spawnPlayer();
+    gameOver = false;
+    loadout.ammo = { pistol:Infinity, smg:0, shotgun:0, sniper:0 };
+    switchWeapon('pistol');
+    el('gameOverScreen').style.display = 'none';
+    bullets.forEach(b=> scene.remove(b.mesh));
+    bullets.length = 0;
+    bots.forEach(respawnBot);
+    items.forEach(it=>{ it.active = true; it.mesh.visible = true; it.respawnTimer = 0; });
+    canvas.requestPointerLock();
+  }
+
+  // ---------------------------------------------------------------------
+  // Update loops
+  // ---------------------------------------------------------------------
+  const GRAVITY = -24;
+  const JUMP_SPEED = 7.2;
+  const BASE_FOV = 75, AIM_FOV = 45;
+
+  function updatePlayer(delta){
+    if(!gameStarted || gameOver) return;
+
+    if(cheats.spin) yaw += SPIN_SPEED*delta;
+
+    if(cheats.aimbot && (!cheats.aimbotADSOnly || aiming)){
+      const eyePos = player.pos.clone().add(new THREE.Vector3(0,player.height,0));
+      const dir = getAimDir();
+      const target = findNearestBot(eyePos, 65, dir, THREE.MathUtils.degToRad(cheats.aimbotFov));
+      if(target){
+        const tp = target.pos.clone().add(new THREE.Vector3(0,1,0));
+        const toT = tp.clone().sub(eyePos);
+        const desiredYaw = Math.atan2(-toT.x, -toT.z);
+        const desiredPitch = Math.asin(THREE.MathUtils.clamp(toT.y/toT.length(), -1, 1));
+        yaw = angleLerp(yaw, desiredYaw, 0.28);
+        pitch = THREE.MathUtils.lerp(pitch, desiredPitch, 0.28);
+      }
+    }
+
+    if(cheats.triggerBot){
+      const eyePos = player.pos.clone().add(new THREE.Vector3(0,player.height,0));
+      const dir = getAimDir();
+      const target = findNearestBot(eyePos, 55, dir, THREE.MathUtils.degToRad(3));
+      if(target){
+        const tp = target.pos.clone().add(new THREE.Vector3(0,1,0));
+        if(hasLineOfSight(eyePos, tp)) shoot();
+      }
+    }
+
+    // Crouch (held). Slims the model and lowers the eye height/speed.
+    player.crouching = !!(keys['ControlLeft'] || keys['ControlRight']);
+    player.height = player.crouching ? 1.15 : 1.6;
+    playerGroup.scale.y = player.crouching ? 0.72 : 1;
+
+    // Jump (single trigger per press) + gravity.
+    const grounded = player.posY <= 0.0005 && player.velY <= 0;
+    if(keys['Space'] && grounded && !player.crouching){
+      player.velY = JUMP_SPEED;
+      keys['Space'] = false;
+    }
+    player.velY += GRAVITY*delta;
+    player.posY += player.velY*delta;
+    if(player.posY < 0){ player.posY = 0; player.velY = 0; }
+
+    // Movement (slower while aiming or crouched).
+    const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+    const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
+    const moveDir = new THREE.Vector3();
+    if(keys['KeyW']) moveDir.add(forward);
+    if(keys['KeyS']) moveDir.sub(forward);
+    if(keys['KeyD']) moveDir.add(right);
+    if(keys['KeyA']) moveDir.sub(right);
+    const isMoving = moveDir.lengthSq() > 0;
+    let speed = 6;
+    if(aiming) speed *= 0.55;
+    if(player.crouching) speed *= 0.55;
+    if(isMoving){
+      moveDir.normalize().multiplyScalar(speed*delta);
+      player.pos.add(moveDir);
+    }
+    resolvePlayerCollision();
+
+    if(mouseDown && cheats.rapidFire) shoot();
+
+    playerGroup.position.set(player.pos.x, player.posY, player.pos.z);
+    playerGroup.rotation.y = yaw;
+    const grounded2 = player.posY <= 0.0005;
+    player.walkPhase += delta * ((isMoving && grounded2 && !player.crouching) ? 19 : 0);
+    const pSwing = Math.sin(player.walkPhase)*0.5;
+    playerRig.legPivotL.rotation.x = pSwing;
+    playerRig.legPivotR.rotation.x = -pSwing;
+
+    // Footsteps: fire once per half stride, only while grounded and moving.
+    if(isMoving && grounded2 && !player.crouching){
+      const stepIndex = Math.floor(player.walkPhase/Math.PI);
+      if(stepIndex !== player.lastStepIndex){
+        player.lastStepIndex = stepIndex;
+        playFootstep(95, 0.045);
+      }
+    }
+
+    // Aim down sights: zoom FOV, tighten TPS framing.
+    const targetFov = aiming ? AIM_FOV : BASE_FOV;
+    if(Math.abs(camera.fov - targetFov) > 0.05){
+      camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, Math.min(1, delta*10));
+      camera.updateProjectionMatrix();
+    }
+
+    const eyePos = player.pos.clone().add(new THREE.Vector3(0, player.height + player.posY, 0));
+    const euler = getAimEuler();
+    if(cheats.tps){
+      const dir = getAimDir();
+      const dist = aiming ? 2.8 : 5;
+      camera.position.copy(eyePos.clone().sub(dir.clone().multiplyScalar(dist)).add(new THREE.Vector3(0,1.2,0)));
+    } else {
+      camera.position.copy(eyePos);
+    }
+    camera.rotation.copy(euler);
+  }
+
+  function updateBots(delta){
+    if(!gameStarted || gameOver) return;
+    bots.forEach(bot=>{
+      if(!bot.alive){
+        bot.respawnTimer -= delta;
+        if(bot.respawnTimer <= 0) respawnBot(bot);
+        return;
+      }
+      const toTarget = bot.wanderTarget.clone().sub(bot.pos);
+      toTarget.y = 0;
+      let moving = false;
+      if(toTarget.length() < 1.5){
+        bot.wanderTarget = randPos();
+      } else {
+        toTarget.normalize().multiplyScalar(bot.speed*delta);
+        bot.pos.add(toTarget);
+        // Local -Z is this model's front (see buildHumanoid), so face the
+        // direction of travel using the negated components.
+        bot.group.rotation.y = Math.atan2(-toTarget.x, -toTarget.z);
+        moving = true;
+      }
+      bot.group.position.set(bot.pos.x, 0, bot.pos.z);
+
+      bot.walkPhase += delta * (moving ? bot.speed*3.2 : 0);
+      const swing = moving ? Math.sin(bot.walkPhase)*0.5 : 0;
+      bot.legPivotL.rotation.x = swing;
+      bot.legPivotR.rotation.x = -swing;
+
+      // Nearby-enemy footstep audio cue, quieter the farther away the bot is.
+      if(moving){
+        const stepIndex = Math.floor(bot.walkPhase/Math.PI);
+        if(stepIndex !== bot.lastStepIndex){
+          bot.lastStepIndex = stepIndex;
+          const distToPlayer = bot.pos.distanceTo(player.pos);
+          if(distToPlayer < 16){
+            playFootstep(58, Math.max(0, (1 - distToPlayer/16))*0.05);
+          }
+        }
+      }
+
+      const dist = bot.pos.distanceTo(player.pos);
+      if(dist < 32){
+        bot.shootTimer -= delta;
+        if(bot.shootTimer <= 0){
+          bot.shootTimer = 1 + Math.random()*1.8;
+          const bEye = bot.pos.clone().add(new THREE.Vector3(0,1.6,0));
+          const pEye = player.pos.clone().add(new THREE.Vector3(0,player.height+player.posY,0));
+          if(hasLineOfSight(bEye, pEye)){
+            spawnTracer(bEye, pEye);
+            if(Math.random() < 0.6 && !gameOver && !cheats.godMode){
+              let dmg = 6 + Math.random()*10;
+              if(player.armor > 0){
+                const absorbed = Math.min(player.armor, dmg);
+                player.armor -= absorbed;
+                dmg -= absorbed;
+              }
+              player.health -= dmg;
+              flashDamage();
+              beep(180,0.08,'sawtooth',0.04);
+              if(player.health <= 0) triggerGameOver();
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function updateBullets(delta){
+    for(let i=bullets.length-1; i>=0; i--){
+      const b = bullets[i];
+      if(b.homing){
+        const target = findNearestBot(b.pos, 45, b.dir, THREE.MathUtils.degToRad(70));
+        if(target){
+          const desired = target.pos.clone().add(new THREE.Vector3(0,1,0)).sub(b.pos).normalize();
+          b.dir.lerp(desired, Math.min(1, delta*4)).normalize();
+        }
+      }
+      b.pos.add(b.dir.clone().multiplyScalar(b.speed*delta));
+      b.mesh.position.copy(b.pos);
+      b.life -= delta;
+
+      let hit = false;
+      for(const bot of bots){
+        if(!bot.alive) continue;
+        const bp = bot.pos.clone().add(new THREE.Vector3(0,1,0));
+        if(b.pos.distanceTo(bp) < 1.15){
+          bot.hp -= b.dmg;
+          beep(1200,0.05,'square',0.04);
+          if(bot.hp <= 0) killBot(bot);
+          hit = true;
+          break;
+        }
+      }
+      if(hit || b.life <= 0 || Math.abs(b.pos.x) > ARENA+8 || Math.abs(b.pos.z) > ARENA+8 || b.pos.y > 25 || b.pos.y < -5){
+        scene.remove(b.mesh);
+        bullets.splice(i,1);
+      }
+    }
+  }
+
+  function updateTracers(delta){
+    for(let i=tracerLines.length-1; i>=0; i--){
+      const t = tracerLines[i];
+      t.life -= delta;
+      if(t.life <= 0){ scene.remove(t.line); tracerLines.splice(i,1); }
+    }
+  }
+
+  function updateItems(delta){
+    if(!gameStarted || gameOver) return;
+    items.forEach(item=>{
+      if(!item.active){
+        item.respawnTimer -= delta;
+        if(item.respawnTimer <= 0){ item.active = true; item.mesh.visible = true; }
+        return;
+      }
+      item.bobPhase += delta*1.6;
+      item.mesh.position.y = 1.15 + Math.sin(item.bobPhase)*0.15;
+      item.mesh.rotation.y += delta*1.2;
+      const dx = player.pos.x - item.x, dz = player.pos.z - item.z;
+      if(Math.sqrt(dx*dx+dz*dz) < 1.3) pickupItem(item);
+    });
+  }
+
+  function updateHUD(){
+    if(cheats.godMode){
+      el('healthFill').style.width = '100%';
+      el('healthFill').style.background = 'linear-gradient(90deg,#ffcc00,#ffe680)';
+      el('healthText').textContent = '∞';
+    } else {
+      el('healthFill').style.width = Math.max(0, player.health) + '%';
+      el('healthFill').style.background = player.health < 30
+        ? 'linear-gradient(90deg,#ff4655,#ff8a94)'
+        : 'linear-gradient(90deg,#3ddc84,#7ee89b)';
+      el('healthText').textContent = Math.max(0, Math.round(player.health));
+    }
+    el('armorFill').style.width = Math.max(0, player.armor) + '%';
+    el('armorText').textContent = Math.max(0, Math.round(player.armor));
+    el('scoreText').textContent = player.score;
+    el('botCount').textContent = bots.filter(b=>b.alive).length + '/' + MAX_BOTS;
+
+    const weapon = WEAPONS[loadout.current];
+    el('weaponName').textContent = weapon.name;
+    el('weaponAmmo').textContent = (weapon.infinite || cheats.infiniteAmmo) ? '∞' : Math.floor(loadout.ammo[loadout.current]);
+
+    const eyePos = player.pos.clone().add(new THREE.Vector3(0,player.height,0));
+    const locked = cheats.aimbot && (!cheats.aimbotADSOnly || aiming) && !!findNearestBot(eyePos, 65, getAimDir(), THREE.MathUtils.degToRad(cheats.aimbotFov));
+    el('crosshair').classList.toggle('locked', locked);
+    el('crosshair').classList.toggle('aiming', aiming);
+  }
+
+  // ---------------------------------------------------------------------
+  // Main loop
+  // ---------------------------------------------------------------------
+  const clock = new THREE.Clock();
+  function animate(){
+    requestAnimationFrame(animate);
+    const delta = Math.min(clock.getDelta(), 0.1);
+    updatePlayer(delta);
+    updateBots(delta);
+    updateBullets(delta);
+    updateTracers(delta);
+    updateItems(delta);
+    updateHUD();
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', ()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+})();
+</script>
+</body>
+</html>

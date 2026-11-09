@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ログイン - れんごくクラン</title>
+  <style>
+    body {
+      background-color: #222;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding-top: 100px;
+    }
+    .box {
+      background: rgba(0,0,0,0.6);
+      padding: 30px;
+      width: 300px;
+      margin: auto;
+      border-radius: 10px;
+    }
+    input {
+      width: 90%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      border: none;
+    }
+    button {
+      padding: 10px 20px;
+      background: orange;
+      border: none;
+      border-radius: 5px;
+      font-size: 1em;
+      cursor: pointer;
+    }
+    #error {
+      color: red;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="box">
+  <h2>🔥 れんごくクラン ログイン 🔥</h2>
+
+  <input type="text" id="user" placeholder="ユーザー名"><br>
+  <input type="password" id="pass" placeholder="パスワード"><br>
+
+  <button onclick="login()">ログイン</button>
+
+  <p id="error"></p>
+</div>
+
+<script>
+async function loadUsers() {
+  const response = await fetch("users.csv");
+  const text = await response.text();
+
+  const lines = text.trim().split("\n");
+  const users = {};
+
+  for (let i = 1; i < lines.length; i++) {
+    let [username, password] = lines[i].split(",");
+
+    // ★ 余計な空白・改行・BOM を除去
+    username = username.replace(/^\uFEFF/, "").trim();
+    password = password.trim();
+
+    if (!users[username]) {
+      users[username] = [];
+    }
+    users[username].push(password);
+  }
+
+  return users;
+}
+
+async function login() {
+  const user = document.getElementById("user").value.trim();
+  const pass = document.getElementById("pass").value.trim();
+
+  const users = await loadUsers();
+
+  if (users[user] && users[user].includes(pass)) {
+    window.location.href = "index.html"; // ← 本編へ
+  } else {
+    document.getElementById("error").innerText =
+      "ユーザー名またはパスワードが違います";
+  }
+}
+</script>
+
+</body>
+</html>
